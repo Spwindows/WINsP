@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SP Window Cleaning – Instant Estimate</title>
+  <style>
+    :root{--blue:#1e66ff;--text:#111;--muted:#666;--border:#e6e6e6;--bg:#f4f6f8;}
+    *{box-sizing:border-box}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);margin:0;padding:24px;color:var(--text)}
+    .card{max-width:520px;margin:0 auto;background:#fff;border:1px solid var(--border);border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,.06);padding:22px}
+    .logo{display:flex;justify-content:center;margin-bottom:10px}
+    .logo img{max-width:220px;height:auto}
+    h1{font-size:28px;line-height:1.15;text-align:center;margin:10px 0 16px}
+    label{display:block;font-weight:600;margin:14px 0 6px}
+    input,select,button{width:100%;font-size:16px}
+    input,select{padding:12px;border:1px solid var(--border);border-radius:10px;background:#fff}
+    input:focus,select:focus{outline:2px solid rgba(30,102,255,.25);border-color:rgba(30,102,255,.5)}
+    .price{margin:18px 0 4px;text-align:center;font-size:40px;font-weight:800}
+    .note{text-align:center;color:var(--muted);font-size:13px;margin-bottom:14px}
+    .btnRow{display:flex;gap:10px;flex-wrap:wrap}
+    .btn{padding:14px 14px;border:0;border-radius:12px;font-weight:800;cursor:pointer}
+    .btn.primary{background:var(--blue);color:#fff}
+    .btn.secondary{background:#eef3ff;color:#0b2a7a}
+    .msg{display:none;margin-top:12px;padding:12px;border-radius:12px;background:#f0fff4;border:1px solid #b7f0c2;color:#0f5132;font-weight:600}
+    .msg.error{background:#fff0f0;border-color:#f3b6b6;color:#7a0b0b}
+    .fine{margin-top:10px;font-size:12px;color:var(--muted);text-align:center}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo"><img src="logo.png" alt="SP Window Cleaning" /></div>
+    <h1>Instant Window Cleaning<br/>Estimate</h1>
+
+    <!--
+      IMPORTANT:
+      - This form is designed for Netlify Forms.
+      - "Estimate Only" emails the summary to you.
+      - "Request Booking" emails the summary then redirects to your booking calendar link.
+
+      Set your booking link below in the JS (CALENDAR_BOOKING_URL).
+    -->
+
+    <form id="estimateForm" method="POST" action="https://formsubmit.co/info@spwindowcleaning.com.au">
+      <!-- FormSubmit config -->
+      <input type="hidden" name="_captcha" value="false" />
+      <input type="hidden" name="_template" value="table" />
+      <input type="hidden" name="_subject" value="SP Window Cleaning - New Instant Quote" />
+      <input type="hidden" name="_next" id="_next" value="" />
+      <!-- Honeypot -->
+      <input type="text" name="_honey" style="display:none" tabindex="-1" autocomplete="off" />
+      <input type="hidden" name="Submission_Type" id="Submission_Type" value="Estimate Only" />
+      <input type="hidden" name="Job_Summary" id="Job_Summary" value="" />
+
+      <!-- Calculated/hidden fields (so your email contains everything) -->
+      <input type="hidden" name="Service_Type" id="Service_Type" />
+      <input type="hidden" name="Storeys" id="Storeys" />
+      <input type="hidden" name="Windows" id="Windows_h" />
+      <input type="hidden" name="Tracks" id="Tracks_h" />
+      <input type="hidden" name="Flyscreens" id="Flyscreens_h" />
+      <input type="hidden" name="Estimated_Hours" id="Estimated_Hours" />
+      <input type="hidden" name="Final_Price" id="Final_Price" />
+
+      <label for="name">Full Name</label>
+      <input id="name" name="Name" type="text" autocomplete="name" required />
+
+      <label for="email">Email</label>
+      <input id="email" name="Customer_Email" type="email" autocomplete="email" required />
+
+      <label for="phone">Phone</label>
+      <input id="phone" name="Phone" type="tel" autocomplete="tel" required />
+
+      <label for="windows">Number of Windows</label>
+      <input id="windows" type="number" inputmode="numeric" min="0" value="0" />
+
+      <label for="tracks">Number of Tracks</label>
+      <input id="tracks" type="number" inputmode="numeric" min="0" value="0" />
+
+      <label for="flyscreens">Number of Flyscreens</label>
+      <input id="flyscreens" type="number" inputmode="numeric" min="0" value="0" />
+
+      <label for="serviceType">Service Type</label>
+      <select id="serviceType">
+        <option value="full" selected>Internal + External</option>
+        <option value="external">External Only</option>
+      </select>
+
+      <label for="storeys">Storeys</label>
+      <select id="storeys">
+        <option value="single" selected>Single Storey</option>
+        <option value="two">Two Storey</option>
+      </select>
+
+      <div class="price" id="priceDisplay">$165</div>
+      <div class="note">Final price shown includes GST</div>
+
+      <div class="btnRow">
+        <button type="button" class="btn secondary" id="btnEstimate">Estimate Only</button>
+        <button type="button" class="btn primary" id="btnBooking">Request Booking</button>
+      </div>
+
+      <div class="msg" id="msgOk">Submitted — we’ll be in touch shortly.</div>
+      <div class="msg error" id="msgErr">Couldn’t submit right now. Please try again.</div>
+
+      <div class="fine">Minimum fee: $165. Prices may change if the scope differs on arrival.</div>
+    </form>
+  </div>
+
+  <script>
+    // ====== SETTINGS (pricing is hidden from customers) ======
+    // Price is INCLUSIVE of GST.
+    const HOURLY_RATE_INC_GST = 135; // $/hr (inc GST)
+
+    const MINS_PER_WINDOW = 8;
+    const MINS_PER_TRACK = 7;
+    const MINS_PER_FLYSCREEN = 1.5;
+
+    const EXTERNAL_ONLY_FACTOR = 0.52; // 52%
+    const TWO_STOREY_SURCHARGE = 0.15; // +15%
+
+    const OVER_6_HOURS_FEE = 100; // add $100 if > 6 hrs (inc GST)
+    const MINIMUM_FEE = 165;      // inc GST
+
+    // Put your booking calendar link here (Calendly / Google Appointment Schedule / etc.)
+    // Example (Calendly): "https://calendly.com/YOURNAME/window-clean"
+    const CALENDAR_BOOKING_URL = "https://calendar.app.google/JSEque78DUU61HXo6"; // <-- SET THIS
+
+    // Where Netlify should email submissions
+    const OWNER_EMAIL = "info@spwindowcleaning.com.au";
+
+    // ====== Helpers ======
+    const $ = (id) => document.getElementById(id);
+
+    function n(v){
+      const x = Number(v);
+      return Number.isFinite(x) && x > 0 ? x : 0;
+    }
+
+    function roundUpToNearest10(amount){
+      return Math.ceil(amount / 10) * 10;
+    }
+
+    function calculate(){
+      const windows = n($("windows").value);
+      const tracks = n($("tracks").value);
+      const flyscreens = n($("flyscreens").value);
+
+      const serviceType = $("serviceType").value; // full | external
+      const storeys = $("storeys").value;         // single | two
+
+      const totalMins = (windows * MINS_PER_WINDOW) + (tracks * MINS_PER_TRACK) + (flyscreens * MINS_PER_FLYSCREEN);
+      const hours = totalMins / 60;
+
+      let price = hours * HOURLY_RATE_INC_GST;
+
+      if (serviceType === "external") price *= EXTERNAL_ONLY_FACTOR;
+      if (storeys === "two") price *= (1 + TWO_STOREY_SURCHARGE);
+      if (hours > 6) price += OVER_6_HOURS_FEE;
+
+      // Minimum fee (exact)
+      if (price < MINIMUM_FEE) price = MINIMUM_FEE;
+      else price = roundUpToNearest10(price);
+
+      // Update UI
+      $("priceDisplay").textContent = `$${price.toFixed(0)}`;
+
+      // Update hidden fields for email summary
+      $("Service_Type").value = (serviceType === "external") ? "External Only" : "Internal + External";
+      $("Storeys").value = (storeys === "two") ? "Two Storey" : "Single Storey";
+      $("Windows_h").value = String(windows);
+      $("Tracks_h").value = String(tracks);
+      $("Flyscreens_h").value = String(flyscreens);
+      $("Estimated_Hours").value = hours.toFixed(2);
+      $("Final_Price").value = `$${price.toFixed(0)}`;
+
+      // Human-readable summary (so the email always has everything)
+      $("Job_Summary").value =
+        `Service: ${$("Service_Type").value}\n` +
+        `Storeys: ${$("Storeys").value}\n` +
+        `Windows: ${windows}\nTracks: ${tracks}\nFlyscreens: ${flyscreens}\n` +
+        `Estimated hours: ${hours.toFixed(2)}\n` +
+        `Final price (inc GST): $${price.toFixed(0)}`;
+
+      return { windows, tracks, flyscreens, serviceType, storeys, hours, price };
+    }
+
+    function submitToFormSubmit(formEl, submissionType){
+      // Use a NORMAL POST to FormSubmit (most reliable + actually sends the email)
+      // Then redirect using FormSubmit's _next.
+
+      // ensure owner + calendar fields are present
+      $("Owner_Email").value = OWNER_EMAIL;
+      $("Calendar_Link").value = buildCalendarLink(calculate());
+
+      // subject based on button
+      const subjEl = formEl.querySelector('input[name="_subject"]');
+      if(subjEl){
+        subjEl.value = (submissionType === "Request Booking")
+          ? "SP Window Cleaning - Booking Request"
+          : "SP Window Cleaning - Estimate Request";
+      }
+
+      // Set reply-to hint (duplicate customer email into a generic "email" field)
+      const customerEmail = formEl.querySelector('[name="Customer_Email"]').value || "";
+      let emailDup = formEl.querySelector('input[name="email"]');
+      if(!emailDup){
+        emailDup = document.createElement("input");
+        emailDup.type = "hidden";
+        emailDup.name = "email";
+        formEl.appendChild(emailDup);
+      }
+      emailDup.value = customerEmail;
+
+      // Tell FormSubmit where to send the user after submit
+      // - Estimate Only: show our local success page
+      // - Request Booking: take them straight to your Google booking link
+      const nextUrl = (submissionType === "Request Booking")
+        ? CALENDAR_BOOKING_URL
+        : (window.location.origin + "/success.html?type=estimate");
+
+      let nextEl = formEl.querySelector('input[name="_next"]');
+      if(!nextEl){
+        nextEl = document.createElement("input");
+        nextEl.type = "hidden";
+        nextEl.name = "_next";
+        formEl.appendChild(nextEl);
+      }
+      nextEl.value = nextUrl;
+
+      // fire
+      formEl.submit();
+    }
+
+    function buildCalendarLink(data){
+      // Google Calendar "appointment schedule" links don't support reliable pre-fill via URL params,
+      // so we just send the customer to your booking page.
+      return CALENDAR_BOOKING_URL;
+    }
+
+    async function handleSubmit(type){
+      const form = $("estimateForm");
+      const ok = $("msgOk");
+      const err = $("msgErr");
+      ok.style.display = "none";
+      err.style.display = "none";
+
+      // basic required fields
+      const name = form.querySelector('[name="Name"]').value.trim();
+      const email = form.querySelector('[name="Customer_Email"]').value.trim();
+      const phone = form.querySelector('[name="Phone"]').value.trim();
+      if(!name || !email || !phone){
+        err.textContent = "Please enter your name, email, and phone.";
+        err.style.display = "block";
+        return;
+      }
+
+      // Ensure latest calculations + hidden fields updated
+      calculate();
+      $("Submission_Type").value = type;
+
+      // Add action type into summary (so the email shows what they clicked)
+      $("Job_Summary").value = `Action: ${type}\n` + ($("Job_Summary").value || "");
+
+      await submitToFormSubmit(form, type);
+    }
+
+    // Recalculate on any change
+    ["windows","tracks","flyscreens","serviceType","storeys"].forEach(id => {
+      $(id).addEventListener("input", calculate);
+      $(id).addEventListener("change", calculate);
+    });
+
+    $("btnEstimate").addEventListener("click", ()=>handleSubmit("Estimate Only"));
+    $("btnBooking").addEventListener("click", ()=>handleSubmit("Request Booking"));
+
+    // Init
+    calculate();
+  </script>
+</body>
+</html>
